@@ -1,6 +1,6 @@
 # Planned Architecture
 
-Airport Route Planner uses independently owned microservices. `airport-service` and `fleet-service` currently exist with their initial domains and read-only APIs. The other services and routing functionality described here are planned for later work.
+Airport Route Planner uses independently owned microservices. `airport-service`, `fleet-service`, and `flight-service` currently exist with their initial domains and read-only APIs. The other services and routing functionality described here are planned for later work.
 
 ## Planned service responsibilities
 
@@ -14,7 +14,7 @@ Flight companies and aircraft types. A flight company's base airport is represen
 
 ### `flight-service`
 
-Company routes, schedules, generated return flights, and runway scheduling.
+Owns persisted CompanyRoute data and derives non-persisted FlightLeg values. Every CompanyRoute produces exactly one outbound leg and one return leg. The return reverses the airports and departs 12 hours after the outbound time, with schedules repeating every 24 hours. The real 616-route dataset and runway-adjusted departure scheduling are not yet implemented.
 
 ### `route-service`
 
@@ -31,18 +31,21 @@ Spring MVC, Thymeleaf, and the interactive map interface.
 | `web-app` | 8080 | Planned |
 | `airport-service` | 8081 | Implemented |
 | `fleet-service` | 8082 | Implemented |
-| `flight-service` | 8083 | Planned |
+| `flight-service` | 8083 | Implemented |
 | `route-service` | 8084 | Planned |
 
 ## Architectural rules
 
 - Each microservice owns its own data.
-- `airport-service` and `fleet-service` currently use separate embedded H2 databases for development and testing. This is a current-stage implementation choice, not a requirement for future deployment databases.
+- `airport-service`, `fleet-service`, and `flight-service` use separate embedded H2 databases for development and testing. This is a current-stage implementation choice, not a requirement for future deployment databases.
 - Flyway owns database schema creation, while Hibernate validates the migrated schema.
 - Microservices must not share database entities.
 - References to entities owned by another service use identifiers such as IATA codes, not JPA relationships.
 - The source Excel workbooks are design-time material only. They are not runtime application inputs and must not be required, read, imported, parsed, uploaded, or committed to the repository.
 - Airport and fleet reference data are committed as version-controlled Flyway seed migrations. The fleet migrations provide 23 aircraft types and 77 flight companies; route-specific aircraft assignments remain future `flight-service` data.
+- CompanyRoute stores company, airport, and aircraft-type identifiers only. It does not store or relate to entities owned by other services.
+- FlightLeg is derived and never persisted. Outbound departure is the stored CompanyRoute schedule; return departure is 12 hours later using daily UTC time wrapping.
+- Runway-adjusted departure times remain future `flight-service` functionality.
 - Distances will not be stored as imported route data. They will eventually be calculated in Java from airport coordinates using the Haversine formula.
 - Schedules will internally use UTC.
 - Airport local times will use fixed UTC offsets. Daylight-saving changes are intentionally outside the project scope.

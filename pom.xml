@@ -22,6 +22,7 @@
     <modules>
         <module>airport-service</module>
         <module>fleet-service</module>
+        <module>flight-service</module>
     </modules>
 
     <properties>

@@ -4,7 +4,7 @@ Airport Route Planner is an educational and portfolio project for exploring a mi
 
 ## Current status
 
-The repository currently contains two implemented microservices. `airport-service` provides the Airport domain, a built-in version-controlled dataset of 161 airports, and a read-only REST API. `fleet-service` provides the AircraftType and FlightCompany domains, built-in version-controlled datasets of 23 aircraft types and 77 flight companies, and read-only REST APIs. Both services use independently owned H2 databases for development and testing, with schemas and reference data managed by Flyway. Route-specific aircraft assignments, flight functionality, routing, and the user interface are not implemented.
+The repository currently contains three implemented microservices. `airport-service` provides the Airport domain, a built-in version-controlled dataset of 161 airports, and a read-only REST API. `fleet-service` provides the AircraftType and FlightCompany domains, built-in version-controlled datasets of 23 aircraft types and 77 flight companies, and read-only REST APIs. `flight-service` persists CompanyRoute records and deterministically derives an outbound and return FlightLeg for each route through a read-only API; the real 616-route dataset has not yet been added. Each service owns an independent H2 database for development and testing, with schemas and reference data managed by Flyway. Runway scheduling, routing, and the user interface are not implemented.
 
 ## Planned capabilities
 
