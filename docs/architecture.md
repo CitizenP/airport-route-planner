@@ -14,7 +14,7 @@ Flight companies and aircraft types. A flight company's base airport is represen
 
 ### `flight-service`
 
-Owns persisted CompanyRoute data and derives non-persisted FlightLeg values. Every CompanyRoute produces exactly one outbound leg and one return leg. The return reverses the airports and departs 12 hours after the outbound time, with schedules repeating every 24 hours. The real 616-route dataset and runway-adjusted departure scheduling are not yet implemented.
+Owns 616 persisted CompanyRoute records and derives non-persisted FlightLeg values. Every CompanyRoute produces exactly one outbound leg and one return leg, yielding 1,232 daily scheduled legs before runway adjustment. The return reverses the airports and departs 12 hours after the outbound time, with schedules repeating every 24 hours. Runway-adjusted departure scheduling is not yet implemented.
 
 ### `route-service`
 
@@ -42,7 +42,7 @@ Spring MVC, Thymeleaf, and the interactive map interface.
 - Microservices must not share database entities.
 - References to entities owned by another service use identifiers such as IATA codes, not JPA relationships.
 - The source Excel workbooks are design-time material only. They are not runtime application inputs and must not be required, read, imported, parsed, uploaded, or committed to the repository.
-- Airport and fleet reference data are committed as version-controlled Flyway seed migrations. The fleet migrations provide 23 aircraft types and 77 flight companies; route-specific aircraft assignments remain future `flight-service` data.
+- Airport, fleet, and CompanyRoute reference data are committed as version-controlled Flyway seed migrations. These provide 161 airports, 23 aircraft types, 77 flight companies, and 616 company routes.
 - CompanyRoute stores company, airport, and aircraft-type identifiers only. It does not store or relate to entities owned by other services.
 - FlightLeg is derived and never persisted. Outbound departure is the stored CompanyRoute schedule; return departure is 12 hours later using daily UTC time wrapping.
 - Runway-adjusted departure times remain future `flight-service` functionality.

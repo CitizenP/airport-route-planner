@@ -1,20 +1,27 @@
 package com.airportrouteplanner.flightservice.companyroute;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.tuple;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import jakarta.persistence.EntityManager;
 import java.sql.ResultSet;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalTime;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +33,9 @@ class CompanyRouteIntegrationTests {
 
     @Autowired
     private CompanyRouteRepository companyRouteRepository;
+
+    @Autowired
+    private FlightLegGenerator flightLegGenerator;
 
     @Autowired
     private Flyway flyway;
@@ -47,34 +57,116 @@ class CompanyRouteIntegrationTests {
     }
 
     @Test
-    void flywayCreatesJpaCompatibleEmptySchema() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("1");
-        assertThat(companyRouteRepository.count()).isZero();
+    void flywayLoadsJpaCompatibleReferenceData() {
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("2");
+        assertThat(companyRouteRepository.count()).isEqualTo(616);
     }
 
     @Test
-    void companyRouteCanBePersistedAndRetrieved() {
-        CompanyRoute saved = companyRouteRepository.saveAndFlush(route(1, "tp", "lis", "opo", 9L, 8, 30));
+    void referenceDataHasExpectedIdsCompaniesRoutesAndExternalIdentifiers() {
+        List<CompanyRoute> routes = companyRouteRepository.findAll();
+        Long[] expectedIds = LongStream.rangeClosed(1, 616).boxed().toArray(Long[]::new);
 
-        CompanyRoute retrieved = companyRouteRepository.findById(saved.getId()).orElseThrow();
+        assertThat(routes)
+                .extracting(CompanyRoute::getId)
+                .hasSize(616)
+                .doesNotHaveDuplicates()
+                .containsExactlyInAnyOrder(expectedIds);
+        assertThat(routes)
+                .extracting(route -> route.getCompanyCode() + "\u0000" + route.getRouteNumber())
+                .hasSize(616)
+                .doesNotHaveDuplicates();
+        Map<String, Long> routesPerCompany = routes.stream()
+                .collect(Collectors.groupingBy(CompanyRoute::getCompanyCode, Collectors.counting()));
+        assertThat(routesPerCompany).hasSize(77);
+        assertThat(routesPerCompany.values()).allMatch(count -> count == 8L);
+        assertThat(routes).allMatch(route -> route.getRouteNumber() >= 1 && route.getRouteNumber() <= 8);
+        assertThat(routes).allMatch(route -> route.getAircraftTypeId() >= 1 && route.getAircraftTypeId() <= 23);
+        assertThat(routes).allMatch(route -> !route.getBaseAirportCode().equals(route.getDestinationAirportCode()));
 
-        assertThat(retrieved.getCompanyCode()).isEqualTo("TP");
-        assertThat(retrieved.getBaseAirportCode()).isEqualTo("LIS");
-        assertThat(retrieved.getDestinationAirportCode()).isEqualTo("OPO");
-        assertThat(retrieved.getAircraftTypeId()).isEqualTo(9L);
-        assertThat(retrieved.getScheduledOutboundDepartureUtc()).isEqualTo(LocalTime.of(8, 30));
+        Set<String> airportCodes = routes.stream()
+                .flatMap(route -> Set.of(route.getBaseAirportCode(), route.getDestinationAirportCode()).stream())
+                .collect(Collectors.toSet());
+        assertThat(airportCodes).hasSize(161);
+
+        Map<String, List<CompanyRoute>> routesByCompany = routes.stream()
+                .collect(Collectors.groupingBy(CompanyRoute::getCompanyCode));
+        assertThat(routesByCompany.values()).allSatisfy(companyRoutes -> assertThat(companyRoutes)
+                .extracting(CompanyRoute::getDestinationAirportCode)
+                .doesNotHaveDuplicates());
     }
 
     @Test
-    void companyRoutesAreOrderedByCompanyThenRouteNumber() {
-        companyRouteRepository.save(route(2, "TP", "LIS", "JFK", 9L, 9, 0));
-        companyRouteRepository.save(route(2, "BA", "LHR", "CDG", 10L, 10, 0));
-        companyRouteRepository.save(route(1, "BA", "LHR", "OPO", 11L, 11, 0));
-        companyRouteRepository.flush();
+    void repositoryReturnsAllReferenceRoutesInCompanyAndRouteNumberOrder() {
+        List<CompanyRoute> routes = companyRouteRepository.findAllByOrderByCompanyCodeAscRouteNumberAsc();
 
-        assertThat(companyRouteRepository.findAllByOrderByCompanyCodeAscRouteNumberAsc())
-                .extracting(CompanyRoute::getCompanyCode, CompanyRoute::getRouteNumber)
-                .containsExactly(tuple("BA", 1), tuple("BA", 2), tuple("TP", 2));
+        assertThat(routes)
+                .hasSize(616)
+                .isSortedAccordingTo(Comparator.comparing(CompanyRoute::getCompanyCode)
+                        .thenComparingInt(CompanyRoute::getRouteNumber));
+    }
+
+    @Test
+    void representativeRoutesMatchVettedReferenceData() {
+        assertRoute(1L, "A3", 1, "ATH", "SKP", 15L, LocalTime.MIDNIGHT);
+        assertRoute(80L, "AF", 8, "CDG", "TBS", 20L, LocalTime.MIDNIGHT);
+        assertRoute(616L, "W6", 8, "BUD", "TBS", 9L, LocalTime.of(22, 20));
+        assertThat(companyRouteRepository.findById(151L).orElseThrow().getScheduledOutboundDepartureUtc())
+                .isEqualTo(LocalTime.MIDNIGHT);
+        assertThat(companyRouteRepository.findById(222L).orElseThrow().getScheduledOutboundDepartureUtc())
+                .isEqualTo(LocalTime.MIDNIGHT);
+        assertThat(companyRouteRepository.findById(293L).orElseThrow().getScheduledOutboundDepartureUtc())
+                .isEqualTo(LocalTime.MIDNIGHT);
+    }
+
+    @Test
+    void correctedSeedMigrationContainsNoTwentyFourHourLiteral() throws Exception {
+        String migration = new ClassPathResource("db/migration/V2__seed_company_routes.sql")
+                .getContentAsString(StandardCharsets.UTF_8);
+
+        assertThat(migration).doesNotContain("24:00:00");
+    }
+
+    @Test
+    void generatedCompanyRouteIdDoesNotCollideWithReferenceIds() {
+        CompanyRoute route = companyRouteRepository.saveAndFlush(new CompanyRoute(
+                1, "TEST", "LIS", "OPO", 9L, LocalTime.of(8, 30)));
+
+        assertThat(route.getId()).isGreaterThan(616L);
+        assertThat(companyRouteRepository.findById(route.getId())).contains(route);
+    }
+
+    @Test
+    void everyReferenceRouteDerivesOutboundThenReturnWithoutPersistence() {
+        List<CompanyRoute> routes = companyRouteRepository.findAll();
+
+        assertThat(routes).hasSize(616).allSatisfy(route -> {
+            List<FlightLeg> legs = flightLegGenerator.generate(route);
+            assertThat(legs).hasSize(2);
+            assertThat(legs).extracting(FlightLeg::direction)
+                    .containsExactly(FlightDirection.OUTBOUND, FlightDirection.RETURN);
+
+            FlightLeg outbound = legs.get(0);
+            assertThat(outbound.originAirportCode()).isEqualTo(route.getBaseAirportCode());
+            assertThat(outbound.destinationAirportCode()).isEqualTo(route.getDestinationAirportCode());
+            assertThat(outbound.scheduledDepartureUtc()).isEqualTo(route.getScheduledOutboundDepartureUtc());
+
+            FlightLeg returnLeg = legs.get(1);
+            assertThat(returnLeg.originAirportCode()).isEqualTo(route.getDestinationAirportCode());
+            assertThat(returnLeg.destinationAirportCode()).isEqualTo(route.getBaseAirportCode());
+            assertThat(returnLeg.scheduledDepartureUtc())
+                    .isEqualTo(route.getScheduledOutboundDepartureUtc().plusHours(12));
+        });
+
+        assertThat(flightLegGenerator.generate(companyRouteRepository.findById(1L).orElseThrow()))
+                .extracting(FlightLeg::scheduledDepartureUtc)
+                .containsExactly(LocalTime.MIDNIGHT, LocalTime.NOON);
+        FlightLeg route616Return = flightLegGenerator
+                .generate(companyRouteRepository.findById(616L).orElseThrow())
+                .get(1);
+        assertThat(route616Return.originAirportCode()).isEqualTo("TBS");
+        assertThat(route616Return.destinationAirportCode()).isEqualTo("BUD");
+        assertThat(route616Return.scheduledDepartureUtc()).isEqualTo(LocalTime.of(10, 20));
     }
 
     @Test
@@ -92,59 +184,50 @@ class CompanyRouteIntegrationTests {
     }
 
     @Test
-    void getAllCompanyRoutesIsEmptyBeforeSeedDataExists() throws Exception {
+    void getAllCompanyRoutesReturnsCompleteOrderedReferenceData() throws Exception {
         mockMvc.perform(get("/api/company-routes"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.length()").value(616))
+                .andExpect(jsonPath("$[0].companyCode").value("5F"))
+                .andExpect(jsonPath("$[0].routeNumber").value(1));
     }
 
     @Test
-    void getAllCompanyRoutesReturnsOrderedData() throws Exception {
-        companyRouteRepository.save(route(2, "TP", "LIS", "JFK", 9L, 9, 0));
-        companyRouteRepository.save(route(1, "BA", "LHR", "OPO", 10L, 10, 0));
-        companyRouteRepository.flush();
+    void getCompanyRouteReturnsExpectedSeededRoute() throws Exception {
+        mockMvc.perform(get("/api/company-routes/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.routeNumber").value(1))
+                .andExpect(jsonPath("$.companyCode").value("A3"))
+                .andExpect(jsonPath("$.baseAirportCode").value("ATH"))
+                .andExpect(jsonPath("$.destinationAirportCode").value("SKP"))
+                .andExpect(jsonPath("$.aircraftTypeId").value(15))
+                .andExpect(jsonPath("$.scheduledOutboundDepartureUtc").value("00:00:00"));
+    }
 
-        mockMvc.perform(get("/api/company-routes"))
+    @Test
+    void correctedMidnightRoutesUseNativeLocalTimeApiRepresentation() throws Exception {
+        for (long routeId : List.of(80L, 151L, 222L, 293L)) {
+            mockMvc.perform(get("/api/company-routes/{id}", routeId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.scheduledOutboundDepartureUtc").value("00:00:00"));
+        }
+    }
+
+    @Test
+    void getFlightLegsReturnsOutboundThenWrappedReturnForSeededRoute() throws Exception {
+        mockMvc.perform(get("/api/company-routes/616/flight-legs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].companyCode").value("BA"))
-                .andExpect(jsonPath("$[0].routeNumber").value(1))
-                .andExpect(jsonPath("$[1].companyCode").value("TP"));
-    }
-
-    @Test
-    void getCompanyRouteReturnsExpectedData() throws Exception {
-        CompanyRoute saved = companyRouteRepository.saveAndFlush(route(
-                3, "TP", "LIS", "JFK", 9L, 8, 30));
-
-        mockMvc.perform(get("/api/company-routes/{id}", saved.getId()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(saved.getId()))
-                .andExpect(jsonPath("$.routeNumber").value(3))
-                .andExpect(jsonPath("$.companyCode").value("TP"))
-                .andExpect(jsonPath("$.baseAirportCode").value("LIS"))
-                .andExpect(jsonPath("$.destinationAirportCode").value("JFK"))
-                .andExpect(jsonPath("$.aircraftTypeId").value(9))
-                .andExpect(jsonPath("$.scheduledOutboundDepartureUtc").value("08:30:00"));
-    }
-
-    @Test
-    void getFlightLegsReturnsOutboundThenReturnWithDailyTimeWrap() throws Exception {
-        CompanyRoute saved = companyRouteRepository.saveAndFlush(route(
-                4, "QR", "DOH", "KBL", 10L, 18, 45));
-
-        mockMvc.perform(get("/api/company-routes/{id}/flight-legs", saved.getId()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].companyRouteId").value(saved.getId()))
+                .andExpect(jsonPath("$[0].companyRouteId").value(616))
                 .andExpect(jsonPath("$[0].direction").value("OUTBOUND"))
-                .andExpect(jsonPath("$[0].originAirportCode").value("DOH"))
-                .andExpect(jsonPath("$[0].destinationAirportCode").value("KBL"))
-                .andExpect(jsonPath("$[0].scheduledDepartureUtc").value("18:45:00"))
+                .andExpect(jsonPath("$[0].originAirportCode").value("BUD"))
+                .andExpect(jsonPath("$[0].destinationAirportCode").value("TBS"))
+                .andExpect(jsonPath("$[0].scheduledDepartureUtc").value("22:20:00"))
                 .andExpect(jsonPath("$[1].direction").value("RETURN"))
-                .andExpect(jsonPath("$[1].originAirportCode").value("KBL"))
-                .andExpect(jsonPath("$[1].destinationAirportCode").value("DOH"))
-                .andExpect(jsonPath("$[1].scheduledDepartureUtc").value("06:45:00"));
+                .andExpect(jsonPath("$[1].originAirportCode").value("TBS"))
+                .andExpect(jsonPath("$[1].destinationAirportCode").value("BUD"))
+                .andExpect(jsonPath("$[1].scheduledDepartureUtc").value("10:20:00"));
     }
 
     @Test
@@ -155,20 +238,20 @@ class CompanyRouteIntegrationTests {
                 .andExpect(status().isNotFound());
     }
 
-    private CompanyRoute route(
-            int routeNumber,
+    private void assertRoute(
+            Long id,
             String companyCode,
+            int routeNumber,
             String baseAirportCode,
             String destinationAirportCode,
             Long aircraftTypeId,
-            int departureHour,
-            int departureMinute) {
-        return new CompanyRoute(
-                routeNumber,
-                companyCode,
-                baseAirportCode,
-                destinationAirportCode,
-                aircraftTypeId,
-                LocalTime.of(departureHour, departureMinute));
+            LocalTime scheduledDepartureUtc) {
+        CompanyRoute route = companyRouteRepository.findById(id).orElseThrow();
+        assertThat(route.getCompanyCode()).isEqualTo(companyCode);
+        assertThat(route.getRouteNumber()).isEqualTo(routeNumber);
+        assertThat(route.getBaseAirportCode()).isEqualTo(baseAirportCode);
+        assertThat(route.getDestinationAirportCode()).isEqualTo(destinationAirportCode);
+        assertThat(route.getAircraftTypeId()).isEqualTo(aircraftTypeId);
+        assertThat(route.getScheduledOutboundDepartureUtc()).isEqualTo(scheduledDepartureUtc);
     }
 }
