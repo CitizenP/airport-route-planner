@@ -4,7 +4,7 @@ Airport Route Planner is an educational and portfolio project for exploring a mi
 
 ## Current status
 
-The repository currently contains its Maven multi-module foundation and `airport-service`, which provides the Airport domain, Flyway-managed persistence, and a read-only REST API. The service starts with a built-in, version-controlled reference dataset of 161 airports. H2 is currently used for development and testing. The other planned services and route-planning functionality are not implemented.
+The repository currently contains two implemented microservices. `airport-service` provides the Airport domain, a built-in version-controlled dataset of 161 airports, and a read-only REST API. `fleet-service` provides the AircraftType and FlightCompany domains and read-only REST APIs; its real reference datasets have not yet been added. Both services use independently owned H2 databases for development and testing, with schemas managed by Flyway. Flight, routing, and user-interface functionality are not implemented.
 
 ## Planned capabilities
 
