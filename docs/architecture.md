@@ -1,6 +1,6 @@
 # Planned Architecture
 
-Airport Route Planner uses independently owned microservices. `airport-service`, `fleet-service`, and `flight-service` currently exist with their initial domains and read-only APIs. The other services and routing functionality described here are planned for later work.
+Airport Route Planner uses independently owned microservices. `airport-service`, `fleet-service`, `flight-service`, and the graph-foundation layer of `route-service` currently exist. Route-finding algorithms and the user-facing application remain future work.
 
 ## Planned service responsibilities
 
@@ -27,7 +27,9 @@ The read-only flight APIs are:
 
 ### `route-service`
 
-Graph construction, Haversine distance calculation, and routing algorithms.
+Owns no database. When `GET /api/route-graph/summary` is requested, it retrieves airports, aircraft types, flight companies, and the adjusted global FlightLeg schedule through the other services' HTTP APIs. It then validates all cross-service identifiers and aircraft ranges and builds an immutable in-memory directed multigraph.
+
+Airports are vertices and adjusted FlightLegs are directed edges. Parallel flights between the same airports remain separate edges. Aircraft performance data is retained once in a catalogue keyed by aircraft-type ID instead of being duplicated into every edge. Great-circle distance is calculated in Java with the Haversine formula and the 6371.0088 km mean Earth radius; imported or spreadsheet route distances are never used. The diagnostic endpoint reports graph counts only. Pathfinding and route-selection algorithms are not implemented.
 
 ### `web-app`
 
@@ -41,12 +43,12 @@ Spring MVC, Thymeleaf, and the interactive map interface.
 | `airport-service` | 8081 | Implemented |
 | `fleet-service` | 8082 | Implemented |
 | `flight-service` | 8083 | Implemented |
-| `route-service` | 8084 | Planned |
+| `route-service` | 8084 | Foundation implemented |
 
 ## Architectural rules
 
 - Each microservice owns its own data.
-- `airport-service`, `fleet-service`, and `flight-service` use separate embedded H2 databases for development and testing. This is a current-stage implementation choice, not a requirement for future deployment databases.
+- `airport-service`, `fleet-service`, and `flight-service` use separate embedded H2 databases for development and testing. This is a current-stage implementation choice, not a requirement for future deployment databases. `route-service` has no database and constructs its graph in memory from service APIs.
 - Flyway owns database schema creation, while Hibernate validates the migrated schema.
 - Microservices must not share database entities.
 - References to entities owned by another service use identifiers such as IATA codes, not JPA relationships.
@@ -56,6 +58,7 @@ Spring MVC, Thymeleaf, and the interactive map interface.
 - FlightLeg and AdjustedFlightLeg are derived and never persisted. Outbound departure is the stored CompanyRoute schedule; return departure is 12 hours later using daily UTC time wrapping.
 - Runway counts remain owned by `airport-service`; `flight-service` obtains them through the airport HTTP API when an adjusted schedule is requested.
 - Runway scheduling covers departures only, uses deterministic five-minute allocation slots, and never updates CompanyRoute records.
-- Distances will not be stored as imported route data. They will eventually be calculated in Java from airport coordinates using the Haversine formula.
+- Distances are not stored as imported route data. `route-service` calculates them in Java from airport coordinates using the Haversine formula.
+- `route-service` validates that every graph edge references known airports, aircraft, and companies, and that its distance does not exceed the referenced aircraft's maximum range.
 - Schedules will internally use UTC.
 - Airport local times will use fixed UTC offsets. Daylight-saving changes are intentionally outside the project scope.

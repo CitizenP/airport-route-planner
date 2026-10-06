@@ -4,7 +4,7 @@ Airport Route Planner is an educational and portfolio project for exploring a mi
 
 ## Current status
 
-The repository currently contains three implemented microservices. `airport-service` provides the Airport domain, 161 built-in airports, and a read-only REST API. `fleet-service` provides the AircraftType and FlightCompany domains, 23 built-in aircraft types, 77 built-in flight companies, and read-only REST APIs. `flight-service` contains 616 persisted CompanyRoutes and derives 1,232 raw daily FlightLegs. Its `GET /api/flight-legs` endpoint retrieves runway counts from `airport-service` and returns a deterministic, runway-adjusted departure schedule. Excess departures move in five-minute increments; the current reference dataset produces 14 delayed departures at 11 airports. Raw and adjusted FlightLegs are derived and are not persisted. Each service owns an independent H2 database for development and testing, with schemas and reference data managed by Flyway. Route finding and the user interface are not implemented.
+The repository currently contains four implemented microservices. `airport-service` provides 161 built-in airports, `fleet-service` provides 23 aircraft types and 77 flight companies, and `flight-service` derives a deterministic, runway-adjusted schedule of 1,232 daily FlightLegs from 616 persisted CompanyRoutes. `route-service` owns no database: on demand, it retrieves those service-owned datasets over HTTP and builds a validated in-memory directed multigraph. Airports are vertices, adjusted FlightLegs are edges, and distances are calculated in Java with the Haversine formula. `GET /api/route-graph/summary` provides diagnostic graph counts. Route-finding algorithms and the user interface are not implemented.
 
 ## Planned capabilities
 
