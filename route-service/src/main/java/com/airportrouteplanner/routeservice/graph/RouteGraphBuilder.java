@@ -65,6 +65,16 @@ public class RouteGraphBuilder {
                 throw new RouteGraphValidationException(
                         "aircraft type " + response.id() + " has invalid maximum range");
             }
+            if (!Double.isFinite(response.fuelConsumptionLitresPerKm())
+                    || response.fuelConsumptionLitresPerKm() <= 0) {
+                throw new RouteGraphValidationException(
+                        "aircraft type " + response.id() + " has invalid fuel consumption per kilometre");
+            }
+            if (!Double.isFinite(response.fuelConsumptionPerPassenger())
+                    || response.fuelConsumptionPerPassenger() <= 0) {
+                throw new RouteGraphValidationException(
+                        "aircraft type " + response.id() + " has invalid fuel consumption per passenger");
+            }
             AircraftTypeInfo aircraftType = new AircraftTypeInfo(
                     response.id(),
                     response.manufacturer(),

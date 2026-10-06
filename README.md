@@ -4,7 +4,7 @@ Airport Route Planner is an educational and portfolio project for exploring a mi
 
 ## Current status
 
-The repository currently contains four implemented microservices. `airport-service` provides 161 built-in airports, `fleet-service` provides 23 aircraft types and 77 flight companies, and `flight-service` derives a deterministic, runway-adjusted schedule of 1,232 daily FlightLegs from 616 persisted CompanyRoutes. `route-service` owns no database: on demand, it retrieves those service-owned datasets over HTTP and builds a validated in-memory directed multigraph. Airports are vertices, adjusted FlightLegs are edges, and distances are calculated in Java with the Haversine formula. `GET /api/route-graph/summary` provides diagnostic graph counts. Route-finding algorithms and the user interface are not implemented.
+The repository currently contains four implemented microservices. `airport-service` provides 161 built-in airports, `fleet-service` provides 23 aircraft types and 77 flight companies, and `flight-service` derives a deterministic, runway-adjusted schedule of 1,232 daily FlightLegs from 616 persisted CompanyRoutes. `route-service` owns no database: on demand, it retrieves those service-owned datasets over HTTP and builds a validated in-memory directed multigraph. Airports are vertices, adjusted FlightLegs are edges, and distances are calculated in Java with the Haversine formula. `GET /api/route-graph/summary` provides diagnostic graph counts, while `POST /api/routes/calculate` supports SHORTEST, CHEAPEST, and ECOLOGICAL static routing through one reusable Dijkstra implementation. FASTEST routing and the user interface are not implemented.
 
 ## Planned capabilities
 

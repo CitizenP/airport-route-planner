@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.airportrouteplanner.routeservice.graph.FlightDirection;
 import com.airportrouteplanner.routeservice.graph.HaversineDistanceCalculator;
 import com.airportrouteplanner.routeservice.graph.RouteGraphBuilder;
+import com.airportrouteplanner.routeservice.graph.RouteGraphService;
 import com.airportrouteplanner.routeservice.integration.AdjustedFlightLegClientResponse;
 import com.airportrouteplanner.routeservice.integration.AircraftTypeClientResponse;
 import com.airportrouteplanner.routeservice.integration.AirportClientResponse;
@@ -27,12 +28,13 @@ class RouteGraphSummaryServiceTests {
                 leg(1, FlightDirection.OUTBOUND, "AAA", "BBB", 0),
                 leg(1, FlightDirection.RETURN, "BBB", "AAA", 5));
 
-        RouteGraphSummaryService service = new RouteGraphSummaryService(
+        RouteGraphService graphService = new RouteGraphService(
                 () -> airports,
                 () -> aircraft,
                 () -> companies,
                 () -> legs,
                 new RouteGraphBuilder(new HaversineDistanceCalculator()));
+        RouteGraphSummaryService service = new RouteGraphSummaryService(graphService);
 
         assertThat(service.getSummary()).isEqualTo(new RouteGraphSummary(2, 1, 1, 2, 1, 5));
     }

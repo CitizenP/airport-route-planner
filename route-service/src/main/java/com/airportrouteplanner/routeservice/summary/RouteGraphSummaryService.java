@@ -1,44 +1,23 @@
 package com.airportrouteplanner.routeservice.summary;
 
 import com.airportrouteplanner.routeservice.graph.RouteGraph;
-import com.airportrouteplanner.routeservice.graph.RouteGraphBuilder;
+import com.airportrouteplanner.routeservice.graph.RouteGraphService;
 import com.airportrouteplanner.routeservice.graph.RouteGraphValidationException;
-import com.airportrouteplanner.routeservice.integration.AdjustedFlightLegDataProvider;
-import com.airportrouteplanner.routeservice.integration.AircraftTypeDataProvider;
-import com.airportrouteplanner.routeservice.integration.AirportDataProvider;
-import com.airportrouteplanner.routeservice.integration.FlightCompanyDataProvider;
 import org.springframework.stereotype.Service;
 
 @Service
 public class RouteGraphSummaryService {
 
-    private final AirportDataProvider airportDataProvider;
-    private final AircraftTypeDataProvider aircraftTypeDataProvider;
-    private final FlightCompanyDataProvider flightCompanyDataProvider;
-    private final AdjustedFlightLegDataProvider flightLegDataProvider;
-    private final RouteGraphBuilder routeGraphBuilder;
+    private final RouteGraphService routeGraphService;
 
-    public RouteGraphSummaryService(
-            AirportDataProvider airportDataProvider,
-            AircraftTypeDataProvider aircraftTypeDataProvider,
-            FlightCompanyDataProvider flightCompanyDataProvider,
-            AdjustedFlightLegDataProvider flightLegDataProvider,
-            RouteGraphBuilder routeGraphBuilder) {
-        this.airportDataProvider = airportDataProvider;
-        this.aircraftTypeDataProvider = aircraftTypeDataProvider;
-        this.flightCompanyDataProvider = flightCompanyDataProvider;
-        this.flightLegDataProvider = flightLegDataProvider;
-        this.routeGraphBuilder = routeGraphBuilder;
+    public RouteGraphSummaryService(RouteGraphService routeGraphService) {
+        this.routeGraphService = routeGraphService;
     }
 
     public RouteGraphSummary getSummary() {
         RouteGraph graph;
         try {
-            graph = routeGraphBuilder.build(
-                    airportDataProvider.getAirports(),
-                    aircraftTypeDataProvider.getAircraftTypes(),
-                    flightCompanyDataProvider.getFlightCompanies(),
-                    flightLegDataProvider.getAdjustedFlightLegs());
+            graph = routeGraphService.buildGraph();
         } catch (RouteGraphValidationException exception) {
             throw new RouteGraphUnavailableException(
                     "upstream data failed route-graph validation: " + exception.getMessage(), exception);

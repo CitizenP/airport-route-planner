@@ -102,6 +102,22 @@ class RouteGraphBuilderTests {
     }
 
     @Test
+    void rejectsInvalidAircraftFuelValues() {
+        AircraftTypeClientResponse invalidPerKm = new AircraftTypeClientResponse(
+                1L, "Maker", "Model", 800, 1000, 10000, 0, 100, 3);
+        AircraftTypeClientResponse invalidPerPassenger = new AircraftTypeClientResponse(
+                1L, "Maker", "Model", 800, 1000, 10000, 3, 100, Double.NaN);
+
+        assertThatThrownBy(() -> builder.build(airports(), List.of(invalidPerKm), companies(), List.of()))
+                .isInstanceOf(RouteGraphValidationException.class)
+                .hasMessageContaining("fuel consumption per kilometre");
+        assertThatThrownBy(() -> builder.build(
+                        airports(), List.of(invalidPerPassenger), companies(), List.of()))
+                .isInstanceOf(RouteGraphValidationException.class)
+                .hasMessageContaining("fuel consumption per passenger");
+    }
+
+    @Test
     void rejectsDuplicateCompanyCodes() {
         List<FlightCompanyClientResponse> companies = List.of(company("CO"), company("CO"));
 

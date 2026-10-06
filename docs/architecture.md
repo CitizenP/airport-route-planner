@@ -1,6 +1,6 @@
 # Planned Architecture
 
-Airport Route Planner uses independently owned microservices. `airport-service`, `fleet-service`, `flight-service`, and the graph-foundation layer of `route-service` currently exist. Route-finding algorithms and the user-facing application remain future work.
+Airport Route Planner uses independently owned microservices. `airport-service`, `fleet-service`, `flight-service`, and `route-service` currently exist. `route-service` implements the validated graph foundation and three static optimization modes; time-dependent FASTEST routing and the user-facing application remain future work.
 
 ## Planned service responsibilities
 
@@ -29,7 +29,20 @@ The read-only flight APIs are:
 
 Owns no database. When `GET /api/route-graph/summary` is requested, it retrieves airports, aircraft types, flight companies, and the adjusted global FlightLeg schedule through the other services' HTTP APIs. It then validates all cross-service identifiers and aircraft ranges and builds an immutable in-memory directed multigraph.
 
-Airports are vertices and adjusted FlightLegs are directed edges. Parallel flights between the same airports remain separate edges. Aircraft performance data is retained once in a catalogue keyed by aircraft-type ID instead of being duplicated into every edge. Great-circle distance is calculated in Java with the Haversine formula and the 6371.0088 km mean Earth radius; imported or spreadsheet route distances are never used. The diagnostic endpoint reports graph counts only. Pathfinding and route-selection algorithms are not implemented.
+Airports are vertices and adjusted FlightLegs are directed edges. Parallel flights between the same airports remain separate edges. Aircraft performance data is retained once in a catalogue keyed by aircraft-type ID instead of being duplicated into every edge. Great-circle distance is calculated in Java with the Haversine formula and the 6371.0088 km mean Earth radius; imported or spreadsheet route distances are never used.
+
+One reusable ordinary Dijkstra implementation provides three static optimization modes through separate edge-weight strategies:
+
+- SHORTEST minimizes Haversine kilometres.
+- CHEAPEST minimizes estimated whole-aircraft fuel litres (`distanceKm * fuelConsumptionLitresPerKm`). It is not a monetary-price calculation.
+- ECOLOGICAL minimizes estimated fuel litres per passenger (`distanceKm / 100 * fuelConsumptionPerPassenger`).
+
+Static optimization ignores schedule timing, but selected route details retain the adjusted departure metadata for explanation and future extension. FASTEST, waiting-time logic, flight duration, and arrival-time calculation are not implemented.
+
+The read-only diagnostic and calculation APIs are:
+
+- `GET /api/route-graph/summary`
+- `POST /api/routes/calculate` for SHORTEST, CHEAPEST, and ECOLOGICAL
 
 ### `web-app`
 
