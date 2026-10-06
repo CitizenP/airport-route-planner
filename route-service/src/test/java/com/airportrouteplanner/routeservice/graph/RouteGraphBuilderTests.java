@@ -118,6 +118,40 @@ class RouteGraphBuilderTests {
     }
 
     @Test
+    void rejectsNonPositiveAndNonFiniteCruiseSpeeds() {
+        for (double speed : new double[] {0, -1, Double.NaN, Double.POSITIVE_INFINITY}) {
+            AircraftTypeClientResponse invalid = new AircraftTypeClientResponse(
+                    1L, "Maker", "Model", speed, 1000, 10000, 3, 100, 3);
+
+            assertThatThrownBy(() -> builder.build(airports(), List.of(invalid), companies(), List.of()))
+                    .isInstanceOf(RouteGraphValidationException.class)
+                    .hasMessageContaining("invalid cruise speed");
+        }
+    }
+
+    @Test
+    void rejectsUtcOffsetOutsideJavaZoneOffsetRange() {
+        List<AirportClientResponse> airports = List.of(
+                new AirportClientResponse("AAA", 0, 0, 18 * 60 + 1),
+                airport("BBB", 0, 1));
+
+        assertThatThrownBy(() -> builder.build(airports, aircraftTypes(), companies(), List.of()))
+                .isInstanceOf(RouteGraphValidationException.class)
+                .hasMessageContaining("invalid UTC offset for airport AAA");
+    }
+
+    @Test
+    void rejectsInconsistentAdjustedScheduleMetadata() {
+        AdjustedFlightLegClientResponse inconsistent = new AdjustedFlightLegClientResponse(
+                1L, 1, FlightDirection.OUTBOUND, "CO", 1L, "AAA", "BBB",
+                LocalTime.of(14, 0), LocalTime.of(14, 5), 0, 10);
+
+        assertThatThrownBy(() -> build(List.of(inconsistent)))
+                .isInstanceOf(RouteGraphValidationException.class)
+                .hasMessageContaining("inconsistent adjusted schedule metadata");
+    }
+
+    @Test
     void rejectsDuplicateCompanyCodes() {
         List<FlightCompanyClientResponse> companies = List.of(company("CO"), company("CO"));
 

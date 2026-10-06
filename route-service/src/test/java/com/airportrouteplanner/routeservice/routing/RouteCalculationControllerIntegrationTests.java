@@ -64,10 +64,13 @@ class RouteCalculationControllerIntegrationTests {
                 .andExpect(jsonPath("$.totalFuelLitres").isNumber())
                 .andExpect(jsonPath("$.fuelPerPassengerLitres").isNumber())
                 .andExpect(jsonPath("$.totalJourneyMinutes").value(nullValue()))
+                .andExpect(jsonPath("$.journeyStartUtc").value(nullValue()))
+                .andExpect(jsonPath("$.journeyArrivalUtc").value(nullValue()))
                 .andExpect(jsonPath("$.legs.length()").value(1))
                 .andExpect(jsonPath("$.legs[0].scheduledDepartureUtc").value("09:00:00"))
                 .andExpect(jsonPath("$.legs[0].adjustedDepartureUtc").value("09:05:00"))
-                .andExpect(jsonPath("$.legs[0].delayMinutes").value(5));
+                .andExpect(jsonPath("$.legs[0].delayMinutes").value(5))
+                .andExpect(jsonPath("$.legs[0].arrivalInstant").value(nullValue()));
     }
 
     @Test
@@ -122,15 +125,79 @@ class RouteCalculationControllerIntegrationTests {
     }
 
     @Test
-    void fastestReturnsNotImplementedWithoutBuildingGraph() throws Exception {
+    void fastestReturnsAbsoluteTimingAndUsesAdjustedDeparture() throws Exception {
+        mockMvc.perform(post("/api/routes/calculate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request("aaa", "bbb", RouteType.FASTEST, "2026-10-20T08:00:00")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.routeType").value("FASTEST"))
+                .andExpect(jsonPath("$.originAirportCode").value("AAA"))
+                .andExpect(jsonPath("$.journeyStartUtc").value("2026-10-20T08:00:00Z"))
+                .andExpect(jsonPath("$.journeyArrivalUtc").isString())
+                .andExpect(jsonPath("$.totalJourneyMinutes").isNumber())
+                .andExpect(jsonPath("$.legs[0].scheduledDepartureInstant").value("2026-10-20T09:00:00Z"))
+                .andExpect(jsonPath("$.legs[0].adjustedDepartureInstant").value("2026-10-20T09:05:00Z"))
+                .andExpect(jsonPath("$.legs[0].waitingMinutes").value(65.0))
+                .andExpect(jsonPath("$.legs[0].flightDurationMinutes").isNumber());
+    }
+
+    @Test
+    void fastestRequiresDepartureLocalDateTime() throws Exception {
+        mockMvc.perform(post("/api/routes/calculate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request("AAA", "BBB", RouteType.FASTEST)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Invalid route request"))
+                .andExpect(jsonPath("$.detail")
+                        .value("departureLocalDateTime is required for FASTEST routing"));
+    }
+
+    @Test
+    void fastestUnknownOriginReturnsNotFound() throws Exception {
+        mockMvc.perform(post("/api/routes/calculate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request("ZZZ", "BBB", RouteType.FASTEST, "2026-10-20T08:00:00")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void fastestUnknownDestinationReturnsNotFound() throws Exception {
+        mockMvc.perform(post("/api/routes/calculate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request("AAA", "ZZZ", RouteType.FASTEST, "2026-10-20T08:00:00")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void fastestUnreachableDestinationReturnsNotFound() throws Exception {
+        mockMvc.perform(post("/api/routes/calculate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request("AAA", "CCC", RouteType.FASTEST, "2026-10-20T08:00:00")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Route not found"));
+    }
+
+    @Test
+    void fastestSameOriginReturnsZeroLegTimedRoute() throws Exception {
+        mockMvc.perform(post("/api/routes/calculate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request("AAA", "AAA", RouteType.FASTEST, "2026-10-20T08:00:00")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalJourneyMinutes").value(0.0))
+                .andExpect(jsonPath("$.journeyStartUtc").value("2026-10-20T08:00:00Z"))
+                .andExpect(jsonPath("$.journeyArrivalUtc").value("2026-10-20T08:00:00Z"))
+                .andExpect(jsonPath("$.legs.length()").value(0));
+    }
+
+    @Test
+    void fastestUpstreamFailurePreservesBadGatewaySemantics() throws Exception {
         upstreamData.fail = true;
 
         mockMvc.perform(post("/api/routes/calculate")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(request("AAA", "BBB", RouteType.FASTEST)))
-                .andExpect(status().isNotImplemented())
-                .andExpect(jsonPath("$.title").value("Route type not implemented"))
-                .andExpect(jsonPath("$.detail").value("FASTEST routing is not implemented"));
+                        .content(request("AAA", "BBB", RouteType.FASTEST, "2026-10-20T08:00:00")))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.title").value("Route graph unavailable"));
     }
 
     @Test
@@ -153,6 +220,21 @@ class RouteCalculationControllerIntegrationTests {
                   "routeType": "%s"
                 }
                 """.formatted(origin, destination, routeType);
+    }
+
+    private String request(
+            String origin,
+            String destination,
+            RouteType routeType,
+            String departureLocalDateTime) {
+        return """
+                {
+                  "originAirportCode": "%s",
+                  "destinationAirportCode": "%s",
+                  "routeType": "%s",
+                  "departureLocalDateTime": "%s"
+                }
+                """.formatted(origin, destination, routeType, departureLocalDateTime);
     }
 
     @TestConfiguration(proxyBeanMethods = false)

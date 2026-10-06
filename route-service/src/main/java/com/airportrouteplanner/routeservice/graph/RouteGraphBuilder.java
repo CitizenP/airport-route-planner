@@ -5,6 +5,10 @@ import com.airportrouteplanner.routeservice.integration.AircraftTypeClientRespon
 import com.airportrouteplanner.routeservice.integration.AirportClientResponse;
 import com.airportrouteplanner.routeservice.integration.FlightCompanyClientResponse;
 import java.util.ArrayList;
+import java.time.DateTimeException;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -64,6 +68,10 @@ public class RouteGraphBuilder {
             if (!Double.isFinite(response.maximumRangeKm()) || response.maximumRangeKm() <= 0) {
                 throw new RouteGraphValidationException(
                         "aircraft type " + response.id() + " has invalid maximum range");
+            }
+            if (!Double.isFinite(response.cruiseSpeedKmH()) || response.cruiseSpeedKmH() <= 0) {
+                throw new RouteGraphValidationException(
+                        "aircraft type " + response.id() + " has invalid cruise speed");
             }
             if (!Double.isFinite(response.fuelConsumptionLitresPerKm())
                     || response.fuelConsumptionLitresPerKm() <= 0) {
@@ -152,6 +160,7 @@ public class RouteGraphBuilder {
                 throw new RouteGraphValidationException(
                         "flight-leg adjustedDepartureDayOffset must not be negative");
             }
+            validateScheduleMetadata(response);
 
             double distanceKm = calculateDistance(origin, destination);
             if (!Double.isFinite(distanceKm) || distanceKm <= 0) {
@@ -200,6 +209,26 @@ public class RouteGraphBuilder {
         } catch (IllegalArgumentException exception) {
             throw new RouteGraphValidationException(
                     "invalid coordinates for airport " + airport.iataCode(), exception);
+        }
+        try {
+            ZoneOffset.ofTotalSeconds(Math.multiplyExact(airport.utcOffsetMinutes(), 60));
+        } catch (ArithmeticException | DateTimeException exception) {
+            throw new RouteGraphValidationException(
+                    "invalid UTC offset for airport " + airport.iataCode(), exception);
+        }
+    }
+
+    private static void validateScheduleMetadata(AdjustedFlightLegClientResponse response) {
+        LocalDate referenceDate = LocalDate.of(2000, 1, 1);
+        var expectedAdjusted = referenceDate
+                .atTime(response.scheduledDepartureUtc())
+                .plusMinutes(response.delayMinutes());
+        long expectedDayOffset = ChronoUnit.DAYS.between(referenceDate, expectedAdjusted.toLocalDate());
+        if (!expectedAdjusted.toLocalTime().equals(response.adjustedDepartureUtc())
+                || expectedDayOffset != response.adjustedDepartureDayOffset()) {
+            throw new RouteGraphValidationException(
+                    "flight leg " + response.companyRouteId() + "/" + response.direction()
+                            + " has inconsistent adjusted schedule metadata");
         }
     }
 

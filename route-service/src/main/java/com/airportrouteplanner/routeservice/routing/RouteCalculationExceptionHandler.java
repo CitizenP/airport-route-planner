@@ -25,11 +25,6 @@ public class RouteCalculationExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, "Route not found", exception);
     }
 
-    @ExceptionHandler(FastestRouteNotImplementedException.class)
-    public ProblemDetail handleFastestNotImplemented(FastestRouteNotImplementedException exception) {
-        return problem(HttpStatus.NOT_IMPLEMENTED, "Route type not implemented", exception);
-    }
-
     @ExceptionHandler({UpstreamServiceException.class, RouteGraphUnavailableException.class})
     public ProblemDetail handleUnavailableGraph(RuntimeException exception) {
         return problem(HttpStatus.BAD_GATEWAY, "Route graph unavailable", exception);

@@ -1,6 +1,5 @@
 package com.airportrouteplanner.routeservice.routing;
 
-import com.airportrouteplanner.routeservice.graph.FlightDirection;
 import com.airportrouteplanner.routeservice.graph.RouteGraph;
 import com.airportrouteplanner.routeservice.graph.RouteGraphEdge;
 import java.util.ArrayList;
@@ -18,13 +17,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class DijkstraRouteFinder {
-
-    private static final Comparator<RouteGraphEdge> EDGE_ORDER = Comparator
-            .comparing(RouteGraphEdge::destinationAirportCode)
-            .thenComparing(RouteGraphEdge::companyCode)
-            .thenComparingInt(RouteGraphEdge::routeNumber)
-            .thenComparingInt(edge -> directionOrder(edge.direction()))
-            .thenComparingLong(RouteGraphEdge::companyRouteId);
 
     private static final Comparator<QueueEntry> QUEUE_ORDER = (left, right) -> {
         int costComparison = Double.compare(left.cost(), right.cost());
@@ -71,7 +63,7 @@ public class DijkstraRouteFinder {
             List<RouteGraphEdge> outgoingEdges = graph.outgoingEdges()
                     .getOrDefault(current.airportCode(), List.of())
                     .stream()
-                    .sorted(EDGE_ORDER)
+                    .sorted(RouteEdgeOrdering.DETERMINISTIC)
                     .toList();
             for (RouteGraphEdge edge : outgoingEdges) {
                 if (settledAirports.contains(edge.destinationAirportCode())) {
@@ -130,19 +122,12 @@ public class DijkstraRouteFinder {
     private static int comparePaths(List<RouteGraphEdge> left, List<RouteGraphEdge> right) {
         int commonSize = Math.min(left.size(), right.size());
         for (int index = 0; index < commonSize; index++) {
-            int comparison = EDGE_ORDER.compare(left.get(index), right.get(index));
+            int comparison = RouteEdgeOrdering.DETERMINISTIC.compare(left.get(index), right.get(index));
             if (comparison != 0) {
                 return comparison;
             }
         }
         return Integer.compare(left.size(), right.size());
-    }
-
-    private static int directionOrder(FlightDirection direction) {
-        return switch (direction) {
-            case OUTBOUND -> 0;
-            case RETURN -> 1;
-        };
     }
 
     private record BestPath(double cost, List<RouteGraphEdge> edges) {

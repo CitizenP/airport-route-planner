@@ -22,7 +22,7 @@ public class StaticRouteCalculator {
             String destinationAirportCode,
             RouteType routeType) {
         if (routeType == RouteType.FASTEST) {
-            throw new FastestRouteNotImplementedException();
+            throw new IllegalArgumentException("FASTEST is not a static route type");
         }
         if (!graph.airports().containsKey(originAirportCode)) {
             throw new AirportNotFoundException(originAirportCode);
@@ -35,7 +35,7 @@ public class StaticRouteCalculator {
             case SHORTEST -> RouteGraphEdge::distanceKm;
             case CHEAPEST -> edge -> fuelLitres(graph, edge);
             case ECOLOGICAL -> edge -> fuelPerPassengerLitres(graph, edge);
-            case FASTEST -> throw new FastestRouteNotImplementedException();
+            case FASTEST -> throw new IllegalArgumentException("FASTEST is not a static route type");
         };
 
         DijkstraPath path = routeFinder.findRoute(graph, originAirportCode, destinationAirportCode, edgeWeight)

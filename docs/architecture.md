@@ -1,6 +1,6 @@
 # Planned Architecture
 
-Airport Route Planner uses independently owned microservices. `airport-service`, `fleet-service`, `flight-service`, and `route-service` currently exist. `route-service` implements the validated graph foundation and three static optimization modes; time-dependent FASTEST routing and the user-facing application remain future work.
+Airport Route Planner uses independently owned microservices. `airport-service`, `fleet-service`, `flight-service`, and `route-service` currently exist. `route-service` implements the validated graph foundation, three static optimization modes, and time-dependent FASTEST routing. The user-facing application remains future work.
 
 ## Planned service responsibilities
 
@@ -37,12 +37,14 @@ One reusable ordinary Dijkstra implementation provides three static optimization
 - CHEAPEST minimizes estimated whole-aircraft fuel litres (`distanceKm * fuelConsumptionLitresPerKm`). It is not a monetary-price calculation.
 - ECOLOGICAL minimizes estimated fuel litres per passenger (`distanceKm / 100 * fuelConsumptionPerPassenger`).
 
-Static optimization ignores schedule timing, but selected route details retain the adjusted departure metadata for explanation and future extension. FASTEST, waiting-time logic, flight duration, and arrival-time calculation are not implemented.
+Static optimization ignores schedule timing, but selected route details retain the adjusted departure metadata for explanation. FASTEST uses a separate time-dependent earliest-arrival Dijkstra implementation: each vertex label is the earliest known absolute UTC arrival, and each relaxation uses the next recurring adjusted departure at or after that arrival. Schedules repeat every 24 hours, and the adjusted runway departure—not the original scheduled clock—controls flight availability.
+
+FASTEST requires an origin-local departure date and time. `route-service` converts it to an absolute UTC instant with the origin airport's fixed UTC offset; no IANA time zones or daylight-saving rules are used. Flight duration is theoretical cruise time (`Haversine distance / aircraft cruise speed`) at nanosecond precision. Total journey time includes initial waiting, connection waiting, and cruise duration. Version 1 permits exact-time connections with a zero-minute minimum connection time and does not model taxiing, climb/descent, arrival runway capacity, or aircraft turnaround. All route calculations then remain in UTC; local-time presentation is future `web-app` responsibility.
 
 The read-only diagnostic and calculation APIs are:
 
 - `GET /api/route-graph/summary`
-- `POST /api/routes/calculate` for SHORTEST, CHEAPEST, and ECOLOGICAL
+- `POST /api/routes/calculate` for SHORTEST, CHEAPEST, ECOLOGICAL, and FASTEST
 
 ### `web-app`
 
@@ -75,3 +77,4 @@ Spring MVC, Thymeleaf, and the interactive map interface.
 - `route-service` validates that every graph edge references known airports, aircraft, and companies, and that its distance does not exceed the referenced aircraft's maximum range.
 - Schedules will internally use UTC.
 - Airport local times will use fixed UTC offsets. Daylight-saving changes are intentionally outside the project scope.
+- Static routes use ordinary Dijkstra with metric-specific weights. FASTEST uses time-dependent earliest-arrival Dijkstra and never persists route results.
