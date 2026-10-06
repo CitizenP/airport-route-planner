@@ -14,7 +14,16 @@ Flight companies and aircraft types. A flight company's base airport is represen
 
 ### `flight-service`
 
-Owns 616 persisted CompanyRoute records and derives non-persisted FlightLeg values. Every CompanyRoute produces exactly one outbound leg and one return leg, yielding 1,232 daily scheduled legs before runway adjustment. The return reverses the airports and departs 12 hours after the outbound time, with schedules repeating every 24 hours. Runway-adjusted departure scheduling is not yet implemented.
+Owns 616 persisted CompanyRoute records and derives non-persisted FlightLeg values. Every CompanyRoute produces exactly one outbound leg and one return leg, yielding 1,232 raw daily scheduled legs. The return reverses the airports and departs 12 hours after the outbound time, with schedules repeating every 24 hours.
+
+For the complete adjusted schedule, `flight-service` retrieves runway counts from `airport-service` with one `GET /api/airports` request. Scheduling models departures only. Requests are processed deterministically by scheduled UTC time, company code, route number, then direction, with OUTBOUND before RETURN. Each runway supplies one departure-capacity unit per slot; excess departures move forward in five-minute increments until capacity is available. Adjusted times, day offsets, and delays are derived and never persisted. The current reference dataset yields 14 delayed departures across 11 origin airports.
+
+The read-only flight APIs are:
+
+- `GET /api/company-routes`
+- `GET /api/company-routes/{id}`
+- `GET /api/company-routes/{id}/flight-legs` for the two raw legs of one route
+- `GET /api/flight-legs` for the complete runway-adjusted daily schedule
 
 ### `route-service`
 
@@ -44,8 +53,9 @@ Spring MVC, Thymeleaf, and the interactive map interface.
 - The source Excel workbooks are design-time material only. They are not runtime application inputs and must not be required, read, imported, parsed, uploaded, or committed to the repository.
 - Airport, fleet, and CompanyRoute reference data are committed as version-controlled Flyway seed migrations. These provide 161 airports, 23 aircraft types, 77 flight companies, and 616 company routes.
 - CompanyRoute stores company, airport, and aircraft-type identifiers only. It does not store or relate to entities owned by other services.
-- FlightLeg is derived and never persisted. Outbound departure is the stored CompanyRoute schedule; return departure is 12 hours later using daily UTC time wrapping.
-- Runway-adjusted departure times remain future `flight-service` functionality.
+- FlightLeg and AdjustedFlightLeg are derived and never persisted. Outbound departure is the stored CompanyRoute schedule; return departure is 12 hours later using daily UTC time wrapping.
+- Runway counts remain owned by `airport-service`; `flight-service` obtains them through the airport HTTP API when an adjusted schedule is requested.
+- Runway scheduling covers departures only, uses deterministic five-minute allocation slots, and never updates CompanyRoute records.
 - Distances will not be stored as imported route data. They will eventually be calculated in Java from airport coordinates using the Haversine formula.
 - Schedules will internally use UTC.
 - Airport local times will use fixed UTC offsets. Daylight-saving changes are intentionally outside the project scope.
