@@ -32,7 +32,7 @@ Spring MVC, Thymeleaf, and the interactive map interface.
 - Microservices must not share database entities.
 - References to entities owned by another service use identifiers such as IATA codes, not JPA relationships.
 - The source Excel workbooks are design-time material only. They are not runtime application inputs and must not be required, read, imported, parsed, uploaded, or committed to the repository.
-- Application datasets will later be committed as version-controlled database seed data.
+- Airport reference data is committed as a version-controlled Flyway seed migration. Datasets for future services will follow the same ownership rule when those services are implemented.
 - Distances will not be stored as imported route data. They will eventually be calculated in Java from airport coordinates using the Haversine formula.
 - Schedules will internally use UTC.
 - Airport local times will use fixed UTC offsets. Daylight-saving changes are intentionally outside the project scope.

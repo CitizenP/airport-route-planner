@@ -32,75 +32,97 @@ class AirportIntegrationTests {
 
     @BeforeEach
     void setUp() {
-        airportRepository.deleteAll();
-        airportRepository.save(new Airport(
-                "OPO", "Francisco Sá Carneiro Airport", "Porto", "Portugal",
-                41.2481, -8.6814, 1, 0));
-        airportRepository.save(new Airport(
-                "DEL", "Indira Gandhi International Airport", "Delhi", "India",
-                28.5562, 77.1000, 4, 330));
-        airportRepository.save(new Airport(
-                "AKL", "Auckland Airport", "Auckland", "New Zealand",
-                -37.0082, 174.7850, 2, 720));
-        airportRepository.flush();
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
     }
 
     @Test
-    void flywayMigrationCreatesJpaCompatibleSchema() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("1");
-        assertThat(airportRepository.count()).isEqualTo(3);
+    void flywayMigrationsCreateSchemaAndLoadBuiltInDataset() {
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("2");
+        assertThat(airportRepository.count()).isEqualTo(161);
     }
 
     @Test
     void airportCanBePersistedAndRetrieved() {
-        Airport airport = airportRepository.findById("OPO").orElseThrow();
+        airportRepository.saveAndFlush(new Airport(
+                "TST", "Test Airport", "Test City", "Test Country",
+                10.0, 20.0, 1, 60));
 
-        assertThat(airport.getName()).isEqualTo("Francisco Sá Carneiro Airport");
-        assertThat(airport.getUtcOffsetMinutes()).isZero();
+        Airport airport = airportRepository.findById("TST").orElseThrow();
+
+        assertThat(airport.getName()).isEqualTo("Test Airport");
+        assertThat(airport.getUtcOffsetMinutes()).isEqualTo(60);
+    }
+
+    @Test
+    void allSeededIataCodesAreUnique() {
+        assertThat(airportRepository.findAll())
+                .extracting(Airport::getIataCode)
+                .hasSize(161)
+                .doesNotHaveDuplicates();
     }
 
     @Test
     void allAirportsAreOrderedByIataCode() {
         assertThat(airportRepository.findAllByOrderByIataCodeAsc())
+                .hasSize(161)
                 .extracting(Airport::getIataCode)
-                .containsExactly("AKL", "DEL", "OPO");
+                .isSorted();
     }
 
     @Test
-    void getAllAirportsReturnsOrderedAirportData() throws Exception {
+    void representativeFixedUtcOffsetsAreLoaded() {
+        assertUtcOffset("CMN", 0);
+        assertUtcOffset("DEL", 330);
+        assertUtcOffset("KBL", 270);
+        assertUtcOffset("KTM", 345);
+        assertUtcOffset("RGN", 390);
+    }
+
+    @Test
+    void monacoHeliportUsesSimulationRunwayCapacity() {
+        Airport monacoHeliport = airportRepository.findById("MCM").orElseThrow();
+
+        assertThat(monacoHeliport.getNumberOfRunways()).isEqualTo(1);
+    }
+
+    @Test
+    void getAllAirportsReturnsCompleteOrderedDataset() throws Exception {
         mockMvc.perform(get("/api/airports"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].iataCode").value("AKL"))
-                .andExpect(jsonPath("$[1].iataCode").value("DEL"))
-                .andExpect(jsonPath("$[1].utcOffsetMinutes").value(330))
-                .andExpect(jsonPath("$[2].iataCode").value("OPO"))
-                .andExpect(jsonPath("$[2].city").value("Porto"));
+                .andExpect(jsonPath("$.length()").value(161))
+                .andExpect(jsonPath("$[0].iataCode").value("ADD"))
+                .andExpect(jsonPath("$[160].iataCode").value("ZRH"));
     }
 
     @Test
     void getAirportReturnsExpectedAirport() throws Exception {
-        mockMvc.perform(get("/api/airports/OPO"))
+        mockMvc.perform(get("/api/airports/DEL"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.iataCode").value("OPO"))
-                .andExpect(jsonPath("$.name").value("Francisco Sá Carneiro Airport"))
-                .andExpect(jsonPath("$.country").value("Portugal"))
-                .andExpect(jsonPath("$.latitude").value(41.2481))
-                .andExpect(jsonPath("$.longitude").value(-8.6814))
-                .andExpect(jsonPath("$.numberOfRunways").value(1))
-                .andExpect(jsonPath("$.utcOffsetMinutes").value(0));
+                .andExpect(jsonPath("$.iataCode").value("DEL"))
+                .andExpect(jsonPath("$.name").value("Indira Gandhi International Airport"))
+                .andExpect(jsonPath("$.city").value("Delhi"))
+                .andExpect(jsonPath("$.country").value("India"))
+                .andExpect(jsonPath("$.latitude").value(28.5562))
+                .andExpect(jsonPath("$.longitude").value(77.1))
+                .andExpect(jsonPath("$.numberOfRunways").value(4))
+                .andExpect(jsonPath("$.utcOffsetMinutes").value(330));
     }
 
     @Test
     void lowercaseIataLookupWorks() throws Exception {
-        mockMvc.perform(get("/api/airports/opo"))
+        mockMvc.perform(get("/api/airports/del"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.iataCode").value("OPO"));
+                .andExpect(jsonPath("$.iataCode").value("DEL"));
     }
 
     @Test
     void unknownIataCodeReturnsNotFound() throws Exception {
         mockMvc.perform(get("/api/airports/XXX"))
                 .andExpect(status().isNotFound());
+    }
+
+    private void assertUtcOffset(String iataCode, int expectedOffsetMinutes) {
+        Airport airport = airportRepository.findById(iataCode).orElseThrow();
+        assertThat(airport.getUtcOffsetMinutes()).isEqualTo(expectedOffsetMinutes);
     }
 }

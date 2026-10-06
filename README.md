@@ -4,7 +4,7 @@ Airport Route Planner is an educational and portfolio project for exploring a mi
 
 ## Current status
 
-The repository currently contains its Maven multi-module foundation and `airport-service`, which now provides the Airport domain, Flyway-managed persistence, and a read-only REST API. H2 is currently used for development and testing. The built-in airport dataset has not yet been added, and the other planned services and route-planning functionality are not implemented.
+The repository currently contains its Maven multi-module foundation and `airport-service`, which provides the Airport domain, Flyway-managed persistence, and a read-only REST API. The service starts with a built-in, version-controlled reference dataset of 161 airports. H2 is currently used for development and testing. The other planned services and route-planning functionality are not implemented.
 
 ## Planned capabilities
 
