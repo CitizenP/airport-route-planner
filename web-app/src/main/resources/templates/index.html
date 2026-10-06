@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Explore the Airport Route Planner's global airport network.">
+    <title>Airport Route Planner</title>
+    <link rel="preconnect" href="https://unpkg.com">
+    <link rel="preconnect" href="https://tile.openstreetmap.org">
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIINfQ3ynhJb+RMZrYfZmHNHD4MZ7i3xK2A="
+          crossorigin="">
+    <link rel="stylesheet" href="/css/app.css" th:href="@{/css/app.css}">
+</head>
+<body>
+<header class="site-header">
+    <div class="header-content">
+        <div>
+            <p class="eyebrow">Explore the connected world</p>
+            <h1>Airport Route Planner</h1>
+        </div>
+        <p class="header-summary">An educational microservices and graph-routing portfolio project.</p>
+    </div>
+</header>
+
+<main class="page-shell">
+    <section class="map-panel" aria-labelledby="map-heading">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Global network</p>
+                <h2 id="map-heading">Airport map</h2>
+            </div>
+            <p id="airport-status" class="status-message" role="status" aria-live="polite">
+                Loading airport network…
+            </p>
+        </div>
+        <div id="airport-error" class="error-message" role="alert" hidden></div>
+        <div id="airport-map" aria-label="Interactive world map showing project airports"></div>
+    </section>
+
+    <section class="planner-panel" aria-labelledby="planner-heading">
+        <div class="section-heading planner-heading">
+            <div>
+                <p class="eyebrow">Plan a journey</p>
+                <h2 id="planner-heading">Route options</h2>
+            </div>
+            <span class="coming-soon">Calculation wiring coming next</span>
+        </div>
+
+        <form id="route-form" class="route-form" aria-describedby="route-form-note">
+            <div class="field-group">
+                <label for="origin-airport">Origin airport</label>
+                <select id="origin-airport" name="originAirportCode" disabled>
+                    <option value="">Loading airports…</option>
+                </select>
+            </div>
+
+            <div class="field-group">
+                <label for="destination-airport">Destination airport</label>
+                <select id="destination-airport" name="destinationAirportCode" disabled>
+                    <option value="">Loading airports…</option>
+                </select>
+            </div>
+
+            <fieldset class="route-types">
+                <legend>Optimize for</legend>
+                <label><input type="radio" name="routeType" value="SHORTEST" checked> Shortest</label>
+                <label><input type="radio" name="routeType" value="FASTEST"> Fastest</label>
+                <label><input type="radio" name="routeType" value="CHEAPEST"> Cheapest</label>
+                <label><input type="radio" name="routeType" value="ECOLOGICAL"> Ecological</label>
+            </fieldset>
+
+            <div id="fastest-fields" class="fastest-fields" aria-label="Fastest route departure time">
+                <div class="field-group">
+                    <label for="departure-date">Departure date</label>
+                    <input id="departure-date" name="departureDate" type="date" disabled>
+                </div>
+                <div class="field-group">
+                    <label for="departure-time">Local departure time</label>
+                    <input id="departure-time" name="departureTime" type="time" disabled>
+                </div>
+                <p>Interpreted using the origin airport’s fixed UTC offset. Daylight-saving time is out of scope.</p>
+            </div>
+
+            <button type="button" disabled aria-disabled="true">Calculate route — coming soon</button>
+            <p id="route-form-note" class="form-note">
+                Airport selection is available now. Route calculation and map drawing arrive in the next milestone.
+            </p>
+        </form>
+
+        <aside class="results-placeholder" aria-labelledby="results-heading">
+            <h3 id="results-heading">Route details</h3>
+            <p>Your selected route, flight options, timings, and efficiency totals will appear here.</p>
+        </aside>
+    </section>
+</main>
+
+<footer>
+    <p>Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>.</p>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""
+        defer></script>
+<script src="/js/map.js" th:src="@{/js/map.js}" defer></script>
+</body>
+</html>

@@ -24,6 +24,7 @@
         <module>fleet-service</module>
         <module>flight-service</module>
         <module>route-service</module>
+        <module>web-app</module>
     </modules>
 
     <properties>

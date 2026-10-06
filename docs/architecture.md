@@ -1,6 +1,6 @@
 # Planned Architecture
 
-Airport Route Planner uses independently owned microservices. `airport-service`, `fleet-service`, `flight-service`, and `route-service` currently exist. `route-service` implements the validated graph foundation, three static optimization modes, and time-dependent FASTEST routing. The user-facing application remains future work.
+Airport Route Planner uses independently owned microservices with a dedicated presentation/BFF application. All five planned applications now exist. `route-service` implements the validated graph foundation, three static optimization modes, and time-dependent FASTEST routing. `web-app` implements the airport-map frontend foundation; route calculation wiring and route drawing remain future work.
 
 ## Planned service responsibilities
 
@@ -48,13 +48,17 @@ The read-only diagnostic and calculation APIs are:
 
 ### `web-app`
 
-Spring MVC, Thymeleaf, and the interactive map interface.
+Runs on port 8080 and owns no database. It uses Spring MVC and Thymeleaf for server-rendered pages, with framework-free browser JavaScript and CSS. Leaflet and OpenStreetMap provide the interactive world map.
+
+The browser communicates only with `web-app`. For airport display data, the browser requests `GET /api/ui/airports`; web-app then retrieves `GET /api/airports` from `airport-service` through an externally configurable server-side client. This Backend-for-Frontend boundary avoids exposing backend service URLs or requiring browser-to-service CORS configuration. The upstream call is lazy, so web-app starts and continues serving its main page when airport-service is unavailable.
+
+The current map renders all 161 runtime airport records, marker popups, and origin/destination selectors. Route-type and FASTEST date/time controls are present as the future interaction shell, but web-app does not yet call `route-service`, submit route calculations, draw routes, or display route-result cards.
 
 ## Planned default ports
 
 | Application | Default port | Current status |
 | --- | ---: | --- |
-| `web-app` | 8080 | Planned |
+| `web-app` | 8080 | Foundation implemented |
 | `airport-service` | 8081 | Implemented |
 | `fleet-service` | 8082 | Implemented |
 | `flight-service` | 8083 | Implemented |
@@ -78,3 +82,4 @@ Spring MVC, Thymeleaf, and the interactive map interface.
 - Schedules will internally use UTC.
 - Airport local times will use fixed UTC offsets. Daylight-saving changes are intentionally outside the project scope.
 - Static routes use ordinary Dijkstra with metric-specific weights. FASTEST uses time-dependent earliest-arrival Dijkstra and never persists route results.
+- `web-app` is the browser-facing BFF. Browsers do not call backend microservices directly, and web-app does not duplicate backend-owned reference datasets.
