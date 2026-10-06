@@ -1,6 +1,6 @@
 # Planned Architecture
 
-Airport Route Planner uses independently owned microservices with a dedicated presentation/BFF application. All five planned applications now exist. `route-service` implements the validated graph foundation, three static optimization modes, and time-dependent FASTEST routing. `web-app` implements the airport-map frontend foundation; route calculation wiring and route drawing remain future work.
+Airport Route Planner uses independently owned microservices with a dedicated presentation/BFF application. All five planned applications now exist. `route-service` implements the validated graph foundation, three static optimization modes, and time-dependent FASTEST routing. `web-app` provides end-to-end route planning, result presentation, and Leaflet route drawing without duplicating routing logic.
 
 ## Planned service responsibilities
 
@@ -52,7 +52,9 @@ Runs on port 8080 and owns no database. It uses Spring MVC and Thymeleaf for ser
 
 The browser communicates only with `web-app`. For airport display data, the browser requests `GET /api/ui/airports`; web-app then retrieves `GET /api/airports` from `airport-service` through an externally configurable server-side client. This Backend-for-Frontend boundary avoids exposing backend service URLs or requiring browser-to-service CORS configuration. The upstream call is lazy, so web-app starts and continues serving its main page when airport-service is unavailable.
 
-The current map renders all 161 runtime airport records, marker popups, and origin/destination selectors. Route-type and FASTEST date/time controls are present as the future interaction shell, but web-app does not yet call `route-service`, submit route calculations, draw routes, or display route-result cards.
+The map renders all 161 runtime airport records, marker popups, and origin/destination selectors. The browser submits every optimization mode to `POST /api/ui/routes/calculate`; web-app forwards the semantic request to `route-service` at its externally configurable server-side URL. Returned totals and selected legs are presented without recalculation, and their airport coordinates from the existing airport lookup are used to draw and fit a Leaflet polyline. A new result replaces the prior route overlay while preserving all airport markers.
+
+For FASTEST, the browser sends an origin-local ISO date and time without adding a zone or performing offset arithmetic. Fixed-offset conversion, recurring-schedule selection, and UTC calculations remain owned by `route-service`. Web-app displays the resulting UTC instants. It remains database-free and does not yet provide detailed airport, company, or aircraft exploration.
 
 ## Planned default ports
 

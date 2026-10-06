@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://tile.openstreetmap.org">
     <link rel="stylesheet"
           href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIINfQ3ynhJb+RMZrYfZmHNHD4MZ7i3xK2A="
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
           crossorigin="">
     <link rel="stylesheet" href="/css/app.css" th:href="@{/css/app.css}">
 </head>
@@ -45,33 +45,33 @@
                 <p class="eyebrow">Plan a journey</p>
                 <h2 id="planner-heading">Route options</h2>
             </div>
-            <span class="coming-soon">Calculation wiring coming next</span>
+            <span class="feature-status">Four optimization modes</span>
         </div>
 
         <form id="route-form" class="route-form" aria-describedby="route-form-note">
             <div class="field-group">
                 <label for="origin-airport">Origin airport</label>
-                <select id="origin-airport" name="originAirportCode" disabled>
+                <select id="origin-airport" name="originAirportCode" required disabled>
                     <option value="">Loading airports…</option>
                 </select>
             </div>
 
             <div class="field-group">
                 <label for="destination-airport">Destination airport</label>
-                <select id="destination-airport" name="destinationAirportCode" disabled>
+                <select id="destination-airport" name="destinationAirportCode" required disabled>
                     <option value="">Loading airports…</option>
                 </select>
             </div>
 
             <fieldset class="route-types">
                 <legend>Optimize for</legend>
-                <label><input type="radio" name="routeType" value="SHORTEST" checked> Shortest</label>
+                <label><input type="radio" name="routeType" value="SHORTEST" required checked> Shortest</label>
                 <label><input type="radio" name="routeType" value="FASTEST"> Fastest</label>
                 <label><input type="radio" name="routeType" value="CHEAPEST"> Cheapest</label>
                 <label><input type="radio" name="routeType" value="ECOLOGICAL"> Ecological</label>
             </fieldset>
 
-            <div id="fastest-fields" class="fastest-fields" aria-label="Fastest route departure time">
+            <div id="fastest-fields" class="fastest-fields" aria-label="Fastest route departure time" hidden>
                 <div class="field-group">
                     <label for="departure-date">Departure date</label>
                     <input id="departure-date" name="departureDate" type="date" disabled>
@@ -83,15 +83,17 @@
                 <p>Interpreted using the origin airport’s fixed UTC offset. Daylight-saving time is out of scope.</p>
             </div>
 
-            <button type="button" disabled aria-disabled="true">Calculate route — coming soon</button>
+            <button id="calculate-route-button" type="submit">Calculate route</button>
             <p id="route-form-note" class="form-note">
-                Airport selection is available now. Route calculation and map drawing arrive in the next milestone.
+                Route calculations run in route-service through this web application. Static modes ignore departure time.
             </p>
+            <p id="route-status" class="route-status" role="status" aria-live="polite"></p>
         </form>
 
-        <aside class="results-placeholder" aria-labelledby="results-heading">
+        <aside id="route-results" class="route-results" aria-labelledby="results-heading" hidden>
             <h3 id="results-heading">Route details</h3>
-            <p>Your selected route, flight options, timings, and efficiency totals will appear here.</p>
+            <div id="route-summary"></div>
+            <ol id="route-legs" class="route-legs"></ol>
         </aside>
     </section>
 </main>
@@ -105,5 +107,6 @@
         crossorigin=""
         defer></script>
 <script src="/js/map.js" th:src="@{/js/map.js}" defer></script>
+<script src="/js/route-planner.js" th:src="@{/js/route-planner.js}" defer></script>
 </body>
 </html>

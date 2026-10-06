@@ -157,7 +157,7 @@ h3 {
     align-items: start;
 }
 
-.coming-soon {
+.feature-status {
     display: inline-block;
     padding: 5px 9px;
     color: var(--brand-dark);
@@ -258,18 +258,110 @@ button:disabled {
 }
 
 .form-note,
-.results-placeholder p {
+.route-results p {
     margin-bottom: 0;
     color: var(--muted);
     font-size: 0.86rem;
 }
 
-.results-placeholder {
+.route-status {
+    min-height: 1.5rem;
+    margin: -8px 0 0;
+    font-size: 0.88rem;
+    font-weight: 650;
+}
+
+.route-status.success {
+    color: var(--brand-dark);
+}
+
+.route-status.error {
+    padding: 10px 12px;
+    color: var(--danger);
+    background: #fff2f2;
+    border: 1px solid #f2cccc;
+    border-radius: 7px;
+}
+
+.route-results {
     margin: 0 22px 22px;
     padding: 17px;
     background: #f8fafb;
-    border: 1px dashed #b8c5cf;
+    border: 1px solid var(--line);
     border-radius: 9px;
+}
+
+.route-results[hidden],
+.fastest-fields[hidden] {
+    display: none;
+}
+
+.route-path {
+    margin-bottom: 14px;
+    color: var(--brand-dark);
+    font-weight: 750;
+    overflow-wrap: anywhere;
+}
+
+.route-metrics,
+.leg-metrics {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 14px;
+    margin: 0;
+    font-size: 0.82rem;
+}
+
+.route-metrics dt,
+.leg-metrics dt {
+    color: var(--muted);
+}
+
+.route-metrics dd,
+.leg-metrics dd {
+    margin: 0;
+    font-weight: 650;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.route-legs {
+    display: grid;
+    gap: 11px;
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.route-leg {
+    padding: 13px;
+    background: white;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 7px;
+}
+
+.route-leg h4 {
+    margin: 0;
+    color: var(--brand-dark);
+}
+
+.route-leg .leg-identity {
+    margin: 3px 0 10px;
+    font-size: 0.78rem;
+}
+
+.zero-leg-message {
+    margin: 14px 0 0;
+    padding: 10px 12px;
+    color: var(--brand-dark) !important;
+    background: #e8f3f4;
+    border-radius: 7px;
+    font-weight: 650;
+}
+
+.calculated-route {
+    filter: drop-shadow(0 1px 2px rgb(20 36 59 / 35%));
 }
 
 footer {

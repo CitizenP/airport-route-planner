@@ -54,7 +54,13 @@ class WebAppMvcIntegrationTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"FASTEST\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"CHEAPEST\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"ECOLOGICAL\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Calculate route — coming soon")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"departure-date\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"departure-time\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"route-results\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Calculate route")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("type=\"submit\" disabled"))))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/js/route-planner.js")));
     }
 
     @Test

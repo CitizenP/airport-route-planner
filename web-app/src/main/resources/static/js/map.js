@@ -7,6 +7,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const departureTime = document.querySelector("#departure-time");
     const routeTypeInputs = document.querySelectorAll('input[name="routeType"]');
 
+    let currentRouteLayer = null;
+    const airportLookup = new Map();
+    let completeAirportLoad;
+    const airportReady = new Promise(resolve => {
+        completeAirportLoad = resolve;
+    });
+
     configureFastestFields(routeTypeInputs, departureDate, departureTime);
 
     if (typeof L === "undefined") {
@@ -34,6 +41,12 @@ document.addEventListener("DOMContentLoaded", () => {
         shadowSize: [41, 41]
     });
 
+    window.airportRouteMap = Object.freeze({
+        whenAirportsReady: () => airportReady,
+        clearRoute,
+        drawRoute
+    });
+
     fetch("/api/ui/airports", {headers: {Accept: "application/json"}})
         .then(async response => {
             if (!response.ok) {
@@ -42,8 +55,14 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             return response.json();
         })
-        .then(airports => renderAirports(map, airports))
-        .catch(error => showError(error.message));
+        .then(airports => {
+            renderAirports(map, airports);
+            completeAirportLoad(true);
+        })
+        .catch(error => {
+            showError(error.message);
+            completeAirportLoad(false);
+        });
 
     function renderAirports(airportMap, airports) {
         const bounds = [];
@@ -53,6 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
         clearSelect(destinationSelect, "Choose a destination airport");
 
         for (const airport of airports) {
+            airportLookup.set(airport.iataCode, Object.freeze({...airport}));
             const coordinates = [airport.latitude, airport.longitude];
             const markerLabel = `${airport.iataCode} — ${airport.name}`;
             const marker = L.marker(coordinates, {
@@ -80,6 +100,76 @@ document.addEventListener("DOMContentLoaded", () => {
         statusElement.dataset.airportCount = String(airports.length);
         statusElement.dataset.markerCount = String(markerCount);
         window.airportMapState = Object.freeze({airportCount: airports.length, markerCount});
+    }
+
+    function clearRoute() {
+        if (currentRouteLayer !== null) {
+            map.removeLayer(currentRouteLayer);
+            currentRouteLayer = null;
+        }
+    }
+
+    function drawRoute(route) {
+        clearRoute();
+        const airportCodes = routeAirportSequence(route);
+        const missingAirport = airportCodes.find(code => !airportLookup.has(code));
+        if (missingAirport) {
+            throw new Error("Route calculated, but one or more airport coordinates are unavailable.");
+        }
+
+        const coordinates = airportCodes.map(code => {
+            const airport = airportLookup.get(code);
+            return [airport.latitude, airport.longitude];
+        });
+
+        if (coordinates.length === 1) {
+            map.setView(coordinates[0], 6);
+            return airportCodes;
+        }
+
+        const displayCoordinates = unwrapLongitudes(coordinates);
+        currentRouteLayer = L.polyline(displayCoordinates, {
+            color: "#d14f32",
+            weight: 5,
+            opacity: 0.9,
+            lineCap: "round",
+            lineJoin: "round",
+            className: "calculated-route"
+        }).addTo(map);
+        map.fitBounds(currentRouteLayer.getBounds(), {padding: [45, 45], maxZoom: 6});
+        return airportCodes;
+    }
+
+    function routeAirportSequence(route) {
+        if (route.legs.length === 0) {
+            return [route.originAirportCode];
+        }
+
+        const airportCodes = [route.legs[0].originAirportCode];
+        for (const leg of route.legs) {
+            if (leg.originAirportCode !== airportCodes[airportCodes.length - 1]) {
+                throw new Error("Route calculated, but its flight-leg sequence is inconsistent.");
+            }
+            airportCodes.push(leg.destinationAirportCode);
+        }
+        return airportCodes;
+    }
+
+    function unwrapLongitudes(coordinates) {
+        const unwrapped = [coordinates[0]];
+        for (let index = 1; index < coordinates.length; index += 1) {
+            const previousLongitude = unwrapped[index - 1][1];
+            const [latitude, rawLongitude] = coordinates[index];
+            let longitude = rawLongitude;
+            while (longitude - previousLongitude > 180) {
+                longitude -= 360;
+            }
+            while (longitude - previousLongitude < -180) {
+                longitude += 360;
+            }
+            unwrapped.push([latitude, longitude]);
+        }
+        return unwrapped;
     }
 
     function createPopup(airport) {
@@ -131,8 +221,11 @@ document.addEventListener("DOMContentLoaded", () => {
 function configureFastestFields(routeTypeInputs, departureDate, departureTime) {
     const update = () => {
         const fastestSelected = document.querySelector('input[name="routeType"]:checked')?.value === "FASTEST";
+        document.querySelector("#fastest-fields").hidden = !fastestSelected;
         departureDate.disabled = !fastestSelected;
         departureTime.disabled = !fastestSelected;
+        departureDate.required = fastestSelected;
+        departureTime.required = fastestSelected;
     };
     routeTypeInputs.forEach(input => input.addEventListener("change", update));
     update();
